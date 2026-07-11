@@ -1188,52 +1188,72 @@ async function startServer() {
       return res.status(400).json({ error: "رابط الويب هوك غير صالح" });
     }
 
-    const baseUrl = process.env.APP_URL || `http://localhost:${botConfig.server?.port || 3000}`;
-    const runUrl = `${baseUrl}/run`;
+    let channelId: string | null = null;
+    try {
+      const whResp = await fetch(webhookUrl);
+      if (whResp.ok) {
+        const whData: any = await whResp.json();
+        channelId = whData.channel_id;
+      }
+    } catch {}
 
-    const embed: any = {
-      title: '🚀 تشغيل البوت',
-      description: `اضغط على الزر أدناه لتشغيل البوت الخاص بك.\n\nسيتم طلب توكن البوت ومعرف ديسكورد الخاص بك.\nبعد الإدخال، سيتم تشغيل البوت تلقائياً وإرسال رابط لوحة التحكم إليك.\n\n🔗 **رابط التشغيل:** [اضغط هنا](${runUrl})`,
-      color: parseInt((botConfig.app?.branding?.primaryColor || '#c5a059').replace('#', ''), 16),
-      footer: { text: botConfig.app?.branding?.footer || 'RS TEAM System' }
-    };
-
-    if (botConfig.app?.branding?.logo) {
-      embed.thumbnail = { url: botConfig.app.branding.logo };
+    let client: Client | undefined;
+    for (const [, c] of botClients) {
+      if (c?.isReady()) { client = c; break; }
     }
 
-    const payload: any = { embeds: [embed] };
+    if (!client) {
+      for (const inst of botConfig.instances) {
+        if (inst.token && inst.token !== "YOUR_DISCORD_BOT_TOKEN_HERE") {
+          await startBotInstance(inst.id).catch(() => null);
+          for (let i = 0; i < 5; i++) {
+            client = botClients.get(inst.id);
+            if (client?.isReady()) break;
+            await new Promise(r => setTimeout(r, 1000));
+          }
+          if (client?.isReady()) break;
+        }
+      }
+    }
 
-    if (process.env.APP_URL) {
-      payload.components = [{
-        type: 1,
-        components: [{
-          type: 2,
-          label: 'تشغيل البوت',
-          style: 5,
-          url: runUrl,
-          emoji: { name: '▶️' }
-        }]
-      }];
+    if (!client || !client.isReady()) {
+      return res.status(400).json({ error: "لا يوجد بوت متصل. يرجى تشغيل بوت أولاً." });
+    }
+
+    if (!channelId) {
+      return res.status(400).json({ error: "تعذر جلب معلومات القناة من الويب هوك." });
     }
 
     try {
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error("[WEBHOOK_ERR]", errText);
-        throw new Error(`فشل الإرسال عبر الويب هوك (${response.status})`);
+      const channel = await client.channels.fetch(channelId);
+      if (!channel || !channel.isTextBased()) {
+        return res.status(400).json({ error: "القناة غير صالحة." });
       }
 
-      res.json({ message: "تم إرسال لوحة التشغيل عبر الويب هوك بنجاح!" });
+      const embed = new EmbedBuilder()
+        .setTitle('🚀 تشغيل البوت')
+        .setDescription('اضغط على الزر أدناه لتشغيل البوت الخاص بك.\n\nسيتم طلب توكن البوت ومعرف ديسكورد الخاص بك.\nبعد الإدخال، سيتم تشغيل البوت تلقائياً وإرسال رابط لوحة التحكم إليك.')
+        .setColor((botConfig.app?.branding?.primaryColor || '#c5a059') as ColorResolvable)
+        .setFooter({ text: botConfig.app?.branding?.footer || 'RS TEAM System' });
+
+      if (botConfig.app?.branding?.logo) {
+        embed.setThumbnail(botConfig.app.branding.logo);
+      }
+
+      const button = new ButtonBuilder()
+        .setCustomId('start_bot_btn')
+        .setLabel('تشغيل البوت')
+        .setStyle(ButtonStyle.Success)
+        .setEmoji('▶️');
+
+      const row = new ActionRowBuilder().addComponents(button);
+
+      await (channel as any).send({ embeds: [embed], components: [row] });
+
+      res.json({ message: "تم إرسال لوحة التشغيل بنجاح!" });
     } catch (err: any) {
       console.error("[DEPLOY_WEBHOOK_ERR]", err);
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: `فشل الإرسال: ${err.message}` });
     }
   });
 
