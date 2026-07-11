@@ -24,7 +24,8 @@ import {
   ColorResolvable,
   REST,
   Routes,
-  SlashCommandBuilder
+  SlashCommandBuilder,
+  Partials
 } from 'discord.js';
 
 async function startServer() {
@@ -157,7 +158,8 @@ async function startServer() {
       const intents = intentNames.map((intent: string) => (GatewayIntentBits as any)[intent]);
 
       const client = new Client({
-        intents: intents
+        intents: intents,
+        partials: [Partials.Channel, Partials.Message]
       });
 
       client.on('ready', async () => {
