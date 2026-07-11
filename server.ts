@@ -675,7 +675,12 @@ async function startServer() {
                 .setCustomId(`ctrl_stop:${userId}`)
                 .setLabel('إيقاف البوت')
                 .setEmoji('⏹️')
-                .setStyle(ButtonStyle.Danger)
+                .setStyle(ButtonStyle.Danger),
+              new ButtonBuilder()
+                .setLabel('لوحة التحكم')
+                .setEmoji('🌐')
+                .setStyle(ButtonStyle.Link)
+              .setURL(`${dashboardUrl}/dashboard`)
             );
 
             const controlRow2 = new ActionRowBuilder().addComponents(
@@ -724,6 +729,8 @@ async function startServer() {
 
           await startBotInstance(instanceId);
 
+          const dashboardUrlNew = process.env.APP_URL || 'https://rs-team-noman-production.up.railway.app';
+
           try {
             const dmUser = await interaction.client.users.fetch(userId);
             const dashboardUrl = process.env.APP_URL || 'https://rs-team-noman-production.up.railway.app';
@@ -766,7 +773,12 @@ async function startServer() {
               .setCustomId(`ctrl_stop:${userId}`)
               .setLabel('إيقاف البوت')
               .setEmoji('⏹️')
-              .setStyle(ButtonStyle.Danger)
+              .setStyle(ButtonStyle.Danger),
+            new ButtonBuilder()
+              .setLabel('لوحة التحكم')
+              .setEmoji('🌐')
+              .setStyle(ButtonStyle.Link)
+              .setURL(`${dashboardUrl}/dashboard`)
           );
 
           const controlRow2 = new ActionRowBuilder().addComponents(
