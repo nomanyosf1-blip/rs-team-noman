@@ -190,6 +190,21 @@ export default function Dashboard({ initialTab }: { initialTab?: 'bots' | 'manag
       }
     };
     checkAuth();
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
+        if (!data.authenticated) {
+          setAuthUser(null);
+          localStorage.removeItem('rs_team_user');
+          localStorage.removeItem('is_operations_verified');
+          localStorage.removeItem('operations_verified_user');
+        }
+      } catch {}
+    }, 60000);
+
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
