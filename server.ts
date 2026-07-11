@@ -282,6 +282,21 @@ async function startServer() {
             return message.channel.send({ embeds: [new EmbedBuilder().setTitle('❌ البوت متوقف').setDescription('شغّل البوت أولاً.').setColor('#EF4444')] }).catch(() => null);
           }
 
+          const isOwner = message.author.id === instance.ownerId;
+          let hasSubscriberRole = false;
+          if (!isOwner && message.guild) {
+            const member = await message.guild.members.fetch(message.author.id).catch(() => null);
+            const subscriberRoleId = botConfig.accessControl?.subscriberRoleId;
+            if (member && subscriberRoleId && isSnowflake(subscriberRoleId)) {
+              hasSubscriberRole = member.roles.cache.has(subscriberRoleId);
+            }
+          }
+
+          if (!isOwner && !hasSubscriberRole) {
+            await message.delete().catch(() => null);
+            return;
+          }
+
           const controlEmbed = new EmbedBuilder()
             .setTitle('🎮 لوحة تحكم البوت')
             .setDescription(`بوت **${instance.name}** يعمل بنجاح!\n\nاستخدم الأزرار أدناه لإدارة بوتك:`)
@@ -321,7 +336,11 @@ async function startServer() {
           );
 
           await message.delete().catch(() => null);
-          return message.channel.send({ embeds: [controlEmbed], components: [controlRow1 as any, controlRow2 as any] }).catch(() => null);
+          try {
+            await message.author.send({ embeds: [controlEmbed], components: [controlRow1 as any, controlRow2 as any] });
+          } catch {
+            return message.channel.send({ embeds: [new EmbedBuilder().setTitle('❌ تعذر الإرسال').setDescription('أرسل للرسائل الخاصة أولاً!').setColor('#EF4444')] }).catch(() => null);
+          }
         }
 
         if (cmd === 'stop') {
