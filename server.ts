@@ -449,6 +449,16 @@ async function startServer() {
               console.error('Failed to DM user:', err);
             }
 
+            try {
+              const subscriberRoleId = botConfig.accessControl?.subscriberRoleId;
+              if (subscriberRoleId && isSnowflake(subscriberRoleId) && interaction.guild) {
+                const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+                if (member) {
+                  await member.roles.add(subscriberRoleId).catch(() => null);
+                }
+              }
+            } catch {}
+
             return interaction.editReply({
               embeds: [new EmbedBuilder()
                 .setTitle('✅ تم التحديث والتشغيل!')
@@ -491,6 +501,16 @@ async function startServer() {
           } catch (err) {
             console.error('Failed to DM user:', err);
           }
+
+          try {
+            const subscriberRoleId = botConfig.accessControl?.subscriberRoleId;
+            if (subscriberRoleId && isSnowflake(subscriberRoleId) && interaction.guild) {
+              const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+              if (member) {
+                await member.roles.add(subscriberRoleId).catch(() => null);
+              }
+            }
+          } catch {}
 
           await interaction.editReply({
             embeds: [new EmbedBuilder()
