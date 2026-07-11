@@ -259,7 +259,7 @@ export default function Dashboard({ initialTab }: { initialTab?: 'bots' | 'manag
   useEffect(() => {
     const handleOAuthMessage = (event: MessageEvent) => {
       const origin = event.origin;
-      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+      if (!origin.includes('railway') && !origin.includes('render') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
         return;
       }
       
