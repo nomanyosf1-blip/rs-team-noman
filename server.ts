@@ -176,11 +176,11 @@ async function startServer() {
             .setDescription('رابط لوحة التحكم')
             .setDMPermission(true),
           new SlashCommandBuilder()
-            .setName('change-token')
+            .setName('change_token')
             .setDescription('تغيير توكن البوت')
             .setDMPermission(true),
           new SlashCommandBuilder()
-            .setName('bot-status')
+            .setName('bot_status')
             .setDescription('حالة البوت')
             .setDMPermission(true),
           new SlashCommandBuilder()
@@ -402,7 +402,7 @@ async function startServer() {
           return interaction.reply({ embeds: [embed] }).catch(() => null);
         }
 
-        if (cmdName === 'change-token') {
+        if (cmdName === 'change_token') {
           const modal = new ModalBuilder()
             .setCustomId('change_token_modal')
             .setTitle('تغيير التوكن');
@@ -417,7 +417,7 @@ async function startServer() {
           return interaction.showModal(modal).catch(() => null);
         }
 
-        if (cmdName === 'bot-status') {
+        if (cmdName === 'bot_status') {
           const isRunning = botClients.has(instanceId) && botClients.get(instanceId)?.isReady();
           const embed = new EmbedBuilder()
             .setTitle('📊 حالة البوت')
@@ -444,7 +444,7 @@ async function startServer() {
         if (cmdName === 'help') {
           const embed = new EmbedBuilder()
             .setTitle('📖 قائمة الأوامر')
-            .setDescription('**/dashboard** - رابط لوحة التحكم\n**/change-token** - تغيير توكن البوت\n**/bot-status** - حالة البوت\n**/stop** - إيقاف البوت\n**/help** - هذه القائمة')
+            .setDescription('**/dashboard** - رابط لوحة التحكم\n**/change_token** - تغيير توكن البوت\n**/bot_status** - حالة البوت\n**/stop** - إيقاف البوت\n**/help** - هذه القائمة')
             .setColor((botConfig.app?.branding?.primaryColor || '#c5a059') as ColorResolvable)
             .setFooter({ text: botConfig.app?.branding?.footer || 'RS TEAM System' });
           return interaction.reply({ embeds: [embed] }).catch(() => null);
