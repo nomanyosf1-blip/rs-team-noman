@@ -180,8 +180,9 @@ export default function Dashboard({ initialTab }: { initialTab?: 'bots' | 'manag
         if (data.authenticated && data.user) {
           setAuthUser(data.user);
           localStorage.setItem('rs_team_user', JSON.stringify(data.user));
-        } else if (!authUser) {
+        } else {
           setAuthUser(null);
+          localStorage.removeItem('rs_team_user');
         }
       } catch {
       } finally {
