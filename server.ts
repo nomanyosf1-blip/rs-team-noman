@@ -1047,7 +1047,7 @@ async function startServer() {
       return res.status(500).json({ error: "لم يتم تكوين Discord Client ID على الخادم بعد." });
     }
     const proto = req.headers['x-forwarded-proto'] || req.protocol;
-    const clientOrigin = req.query.origin || process.env.APP_URL || `${proto}://${req.get('host')}`;
+    const clientOrigin = req.query.origin || process.env.APP_URL || 'https://rs-team-noman-production.up.railway.app';
     const redirectUri = `${clientOrigin}/api/auth/discord/callback`;
     
     const params = new URLSearchParams({
