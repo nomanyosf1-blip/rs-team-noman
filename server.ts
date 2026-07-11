@@ -722,13 +722,59 @@ async function startServer() {
     }
   });
 
-  apiRouter.get("/auth/me", (req, res) => {
+  apiRouter.get("/auth/me", async (req, res) => {
     const session = (req as any).session;
-    if (session?.user) {
-      res.json({ authenticated: true, user: session.user });
-    } else {
-      res.json({ authenticated: false });
+    if (!session?.user) {
+      return res.json({ authenticated: false });
     }
+
+    const ac = botConfig.accessControl || {};
+    const adminRoleId = ac.adminRoleId || "";
+    const staffRoleId = ac.staffRoleId || "";
+    const subscriberRoleId = ac.subscriberRoleId || "";
+    const minRole = ac.minRoleToAccess || "subscriber";
+    const roleHierarchy: Record<string, number> = { admin: 3, staff: 2, subscriber: 1, none: 0 };
+
+    let detectedRole: string = "none";
+    let memberRoles: string[] = [];
+
+    for (const [instanceId, client] of botClients.entries()) {
+      if (client.isReady()) {
+        const gId = botConfig.globalDiscord?.guildId;
+        if (gId && isSnowflake(gId)) {
+          const guild = await client.guilds.fetch(gId).catch(() => null);
+          if (guild) {
+            const member = await guild.members.fetch(session.user.id).catch(() => null);
+            if (member) {
+              memberRoles = member.roles.cache.map(r => r.id);
+              if (adminRoleId && isSnowflake(adminRoleId) && member.roles.cache.has(adminRoleId)) {
+                detectedRole = "admin";
+                break;
+              }
+              if (staffRoleId && isSnowflake(staffRoleId) && member.roles.cache.has(staffRoleId)) {
+                detectedRole = "staff";
+                break;
+              }
+              if (subscriberRoleId && isSnowflake(subscriberRoleId) && member.roles.cache.has(subscriberRoleId)) {
+                detectedRole = "subscriber";
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const hasAccess = roleHierarchy[detectedRole] >= roleHierarchy[minRole];
+
+    if (!hasAccess) {
+      session.destroy(() => {});
+      return res.json({ authenticated: false });
+    }
+
+    session.user.role = detectedRole;
+    session.user.memberRoles = memberRoles;
+    res.json({ authenticated: true, user: session.user });
   });
 
   apiRouter.get("/auth/logout", (req, res) => {
