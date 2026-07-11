@@ -132,7 +132,10 @@ async function startServer() {
 
   async function startBotInstance(instanceId: string) {
     const instance = botConfig.instances.find(i => i.id === instanceId);
-    if (!instance || !instance.token) return;
+    if (!instance) return;
+
+    const tokenToUse = (instance.token && instance.token.trim() !== "" && instance.token !== "YOUR_DISCORD_BOT_TOKEN_HERE") ? instance.token : (process.env.DISCORD_TOKEN || "");
+    if (!tokenToUse) return;
 
     try {
       if (botClients.has(instanceId)) {
@@ -172,7 +175,7 @@ async function startServer() {
       });
 
       botClients.set(instanceId, client);
-      await client.login(instance.token);
+      await client.login(tokenToUse);
     } catch (err: any) {
       console.error(`[BOT_ERROR_${instanceId}] Login failed:`, err.message);
       instance.status = "خطأ في التوكن";
@@ -1085,8 +1088,52 @@ async function startServer() {
   }
 
   // Auto-start active bots on startup
+  const envToken = process.env.DISCORD_TOKEN;
+  const envGuildId = process.env.GUILD_ID;
+  
+  // Apply env var overrides
+  if (envGuildId && (!botConfig.globalDiscord?.guildId || botConfig.globalDiscord.guildId === 'YOUR_GUILD_ID_HERE')) {
+    if (!botConfig.globalDiscord) botConfig.globalDiscord = { guildId: '', adminRoleId: '', staffRoleId: '', logChannelId: '', ticketCategoryId: '', transcriptChannelId: '' };
+    botConfig.globalDiscord.guildId = envGuildId;
+  }
+  
+  // If we have an env token but no valid instance, create one
+  if (envToken && envToken.trim() !== "") {
+    let hasValidInstance = botConfig.instances?.some((inst: any) => inst.token && inst.token.trim() !== "" && inst.token !== "YOUR_DISCORD_BOT_TOKEN_HERE");
+    
+    if (!hasValidInstance) {
+      const newInst = {
+        id: "inst-main",
+        name: "RS TEAM BOT",
+        token: envToken,
+        status: "متوقف",
+        panels: [],
+        ownerId: "",
+        systemEmbeds: {
+          alreadyHasTicket: { title: "❌ لديك تذكرة مفتوحة", description: "أغلق تذكرتك الحالية أولاً لفتح تذكرة جديدة.", color: "#FF0000" },
+          ticketWarning: { title: "⚠️ تنبيه رسمي", description: "تم تنبيهك في {channel}\nالسبب: {reason}", color: "#FFA500" }
+        }
+      };
+      botConfig.instances.push(newInst);
+      saveConfig();
+    } else {
+      // Update existing instances with placeholder token to use env token
+      botConfig.instances.forEach((inst: any) => {
+        if (!inst.token || inst.token.trim() === "" || inst.token === "YOUR_DISCORD_BOT_TOKEN_HERE") {
+          inst.token = envToken;
+        }
+      });
+      saveConfig();
+    }
+  }
+
   botConfig.instances?.forEach((inst: any) => {
-    if (inst.token && inst.token.trim() !== "" && inst.token !== "YOUR_DISCORD_BOT_TOKEN_HERE") {
+    const tokenToUse = (inst.token && inst.token.trim() !== "" && inst.token !== "YOUR_DISCORD_BOT_TOKEN_HERE") ? inst.token : envToken;
+    if (tokenToUse && tokenToUse.trim() !== "") {
+      if (inst.token === "YOUR_DISCORD_BOT_TOKEN_HERE" || !inst.token || inst.token.trim() === "") {
+        inst.token = tokenToUse;
+        saveConfig();
+      }
       console.log(`[AUTO_START] Starting bot instance on startup: ${inst.name} (${inst.id})`);
       startBotInstance(inst.id).catch(err => {
          console.error(`[AUTO_START_ERROR] Failed to start active bot ${inst.id}:`, err);
