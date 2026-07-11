@@ -226,7 +226,7 @@ async function startServer() {
         if (cmd === 'help') {
           const embed = new EmbedBuilder()
             .setTitle('📖 قائمة الأوامر')
-            .setDescription('**!dashboard** - رابط لوحة التحكم\n**!change_token** - تغيير توكن البوت\n**!bot_status** - حالة البوت\n**!stop** - إيقاف البوت\n**!help** - هذه القائمة')
+            .setDescription('**!panel** - لوحة تحكم البوت\n**!dashboard** - رابط لوحة التحكم\n**!change_token** - تغيير توكن البوت\n**!bot_status** - حالة البوت\n**!stop** - إيقاف البوت\n**!help** - هذه القائمة')
             .setColor((botConfig.app?.branding?.primaryColor || '#c5a059') as ColorResolvable)
             .setFooter({ text: botConfig.app?.branding?.footer || 'RS TEAM System' });
           await message.delete().catch(() => null);
@@ -273,6 +273,55 @@ async function startServer() {
             .setColor('#10B981');
           await message.delete().catch(() => null);
           return message.channel.send({ embeds: [embed] }).catch(() => null);
+        }
+
+        if (cmd === 'panel') {
+          const isRunning = botClients.has(instance.id) && botClients.get(instance.id)?.isReady();
+          if (!isRunning) {
+            await message.delete().catch(() => null);
+            return message.channel.send({ embeds: [new EmbedBuilder().setTitle('❌ البوت متوقف').setDescription('شغّل البوت أولاً.').setColor('#EF4444')] }).catch(() => null);
+          }
+
+          const controlEmbed = new EmbedBuilder()
+            .setTitle('🎮 لوحة تحكم البوت')
+            .setDescription(`بوت **${instance.name}** يعمل بنجاح!\n\nاستخدم الأزرار أدناه لإدارة بوتك:`)
+            .setColor((botConfig.app?.branding?.primaryColor || '#c5a059') as ColorResolvable)
+            .setFooter({ text: `المالك: ${message.author.username} | ${instance.id}` })
+            .setTimestamp();
+
+          const controlRow1 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId(`ctrl_restart:${instance.ownerId}`)
+              .setLabel('إعادة التشغيل')
+              .setEmoji('🔄')
+              .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+              .setCustomId(`ctrl_stop:${instance.ownerId}`)
+              .setLabel('إيقاف البوت')
+              .setEmoji('⏹️')
+              .setStyle(ButtonStyle.Danger),
+            new ButtonBuilder()
+              .setLabel('لوحة التحكم')
+              .setEmoji('🌐')
+              .setStyle(ButtonStyle.Link)
+              .setURL(`${dashboardUrl}/dashboard`)
+          );
+
+          const controlRow2 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId(`ctrl_change_token:${instance.ownerId}`)
+              .setLabel('تغيير التوكن')
+              .setEmoji('🔑')
+              .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+              .setCustomId(`ctrl_status:${instance.ownerId}`)
+              .setLabel('حالة البوت')
+              .setEmoji('📊')
+              .setStyle(ButtonStyle.Secondary)
+          );
+
+          await message.delete().catch(() => null);
+          return message.channel.send({ embeds: [controlEmbed], components: [controlRow1 as any, controlRow2 as any] }).catch(() => null);
         }
 
         if (cmd === 'stop') {
@@ -524,7 +573,7 @@ async function startServer() {
         if (cmdName === 'help') {
           const embed = new EmbedBuilder()
             .setTitle('📖 قائمة الأوامر')
-            .setDescription('**/dashboard** - رابط لوحة التحكم\n**/change_token** - تغيير توكن البوت\n**/bot_status** - حالة البوت\n**/stop** - إيقاف البوت\n**/help** - هذه القائمة')
+            .setDescription('**/panel** - لوحة تحكم البوت\n**/dashboard** - رابط لوحة التحكم\n**/change_token** - تغيير توكن البوت\n**/bot_status** - حالة البوت\n**/stop** - إيقاف البوت\n**/help** - هذه القائمة')
             .setColor((botConfig.app?.branding?.primaryColor || '#c5a059') as ColorResolvable)
             .setFooter({ text: botConfig.app?.branding?.footer || 'RS TEAM System' });
           return interaction.reply({ embeds: [embed] }).catch(() => null);
@@ -658,53 +707,10 @@ async function startServer() {
               }
             } catch {}
 
-            const controlEmbed = new EmbedBuilder()
-              .setTitle('🎮 لوحة تحكم البوت')
-              .setDescription(`بوت **${instance.name}** يعمل بنجاح!\n\nاستخدم الأزرار أدناه لإدارة بوتك:`)
-              .setColor((botConfig.app?.branding?.primaryColor || '#c5a059') as ColorResolvable)
-              .setFooter({ text: `المالك: ${interaction.user.username} | ${instance.id}` })
-              .setTimestamp();
-
-            const controlRow1 = new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId(`ctrl_restart:${userId}`)
-                .setLabel('إعادة التشغيل')
-                .setEmoji('🔄')
-                .setStyle(ButtonStyle.Primary),
-              new ButtonBuilder()
-                .setCustomId(`ctrl_stop:${userId}`)
-                .setLabel('إيقاف البوت')
-                .setEmoji('⏹️')
-                .setStyle(ButtonStyle.Danger),
-              new ButtonBuilder()
-                .setLabel('لوحة التحكم')
-                .setEmoji('🌐')
-                .setStyle(ButtonStyle.Link)
-              .setURL(`${dashboardUrl}/dashboard`)
-            );
-
-            const controlRow2 = new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId(`ctrl_change_token:${userId}`)
-                .setLabel('تغيير التوكن')
-                .setEmoji('🔑')
-                .setStyle(ButtonStyle.Secondary),
-              new ButtonBuilder()
-                .setCustomId(`ctrl_status:${userId}`)
-                .setLabel('حالة البوت')
-                .setEmoji('📊')
-                .setStyle(ButtonStyle.Secondary)
-            );
-
-            await interaction.channel?.send({
-              embeds: [controlEmbed],
-              components: [controlRow1 as any, controlRow2 as any]
-            }).catch(() => null);
-
             return interaction.editReply({
               embeds: [new EmbedBuilder()
                 .setTitle('✅ تم التحديث والتشغيل!')
-                .setDescription('تم تحديث توكن بوتك وتشغيله بنجاح! شوف لوحة التحكم بالأسفل.')
+                .setDescription('تم تحديث توكن بوتك وتشغيله بنجاح! استخدم `!panel` بالروم لإظهار لوحة التحكم.')
                 .setColor('#10B981')
               ]
             });
@@ -756,53 +762,10 @@ async function startServer() {
             }
           } catch {}
 
-          const controlEmbed = new EmbedBuilder()
-            .setTitle('🎮 لوحة تحكم البوت')
-            .setDescription(`بوت **${newInstance.name}** يعمل بنجاح!\n\nاستخدم الأزرار أدناه لإدارة بوتك:`)
-            .setColor((botConfig.app?.branding?.primaryColor || '#c5a059') as ColorResolvable)
-            .setFooter({ text: `المالك: ${interaction.user.username} | ${instanceId}` })
-            .setTimestamp();
-
-          const controlRow1 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId(`ctrl_restart:${userId}`)
-              .setLabel('إعادة التشغيل')
-              .setEmoji('🔄')
-              .setStyle(ButtonStyle.Primary),
-            new ButtonBuilder()
-              .setCustomId(`ctrl_stop:${userId}`)
-              .setLabel('إيقاف البوت')
-              .setEmoji('⏹️')
-              .setStyle(ButtonStyle.Danger),
-            new ButtonBuilder()
-              .setLabel('لوحة التحكم')
-              .setEmoji('🌐')
-              .setStyle(ButtonStyle.Link)
-              .setURL(`${dashboardUrl}/dashboard`)
-          );
-
-          const controlRow2 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId(`ctrl_change_token:${userId}`)
-              .setLabel('تغيير التوكن')
-              .setEmoji('🔑')
-              .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder()
-              .setCustomId(`ctrl_status:${userId}`)
-              .setLabel('حالة البوت')
-              .setEmoji('📊')
-              .setStyle(ButtonStyle.Secondary)
-          );
-
-          await interaction.channel?.send({
-            embeds: [controlEmbed],
-            components: [controlRow1 as any, controlRow2 as any]
-          }).catch(() => null);
-
           await interaction.editReply({
             embeds: [new EmbedBuilder()
               .setTitle('✅ تم التشغيل بنجاح!')
-              .setDescription('تم تشغيل بوتك بنجاح! شوف لوحة التحكم بالأسفل.')
+              .setDescription('تم تشغيل بوتك بنجاح! استخدم `!panel` بالروم لإظهار لوحة التحكم.')
               .setColor('#10B981')
             ]
           });
