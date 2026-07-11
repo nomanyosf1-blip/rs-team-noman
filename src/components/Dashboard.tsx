@@ -132,6 +132,32 @@ export default function Dashboard({ initialTab }: { initialTab?: 'bots' | 'manag
   });
   const [authLoading, setAuthLoading] = useState(true);
 
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [dashboardTab, setDashboardTab] = useState<'bots' | 'management' | 'operation'>(() => {
+    if (initialTab) return initialTab;
+    if (location.pathname.includes('operation')) return 'operation';
+    if (location.pathname.includes('bots')) return 'bots';
+    return 'bots';
+  });
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
+  const [config, setConfig] = useState<BotConfig>({ instances: [] });
+  const [ownerIdFilter, setOwnerIdFilter] = useState<string>(() => localStorage.getItem('ownerIdFilter') || '');
+  const [discordData, setDiscordData] = useState<{ channels: DiscordChannel[], roles: DiscordRole[] }>({ channels: [], roles: [] });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ text: string, type: 'success' | 'alert' | 'error' } | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteTargetOwnerId, setDeleteTargetOwnerId] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmDeleteOwnerId, setConfirmDeleteOwnerId] = useState<string | null>(null);
+  const [isOperationsVerified, setIsOperationsVerified] = useState<boolean>(() => !!authUser);
+  const [verifiedUser, setVerifiedUser] = useState<{ id: string; username: string; avatar: string; role?: string } | null>(() => authUser ? { id: authUser.id, username: authUser.username, avatar: authUser.avatar, role: authUser.role } : null);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+
+  const changeTab = (tab: 'bots' | 'management' | 'operation') => {
+    setDashboardTab(tab);
+    navigate(`/dashboard/${tab === 'management' ? 'panels' : tab === 'bots' ? 'bots' : 'operation'}`);
+  };
+
   const handleAuthSuccess = useCallback((user: AuthUser) => {
     setAuthUser(user);
     localStorage.setItem('rs_team_user', JSON.stringify(user));
@@ -158,7 +184,6 @@ export default function Dashboard({ initialTab }: { initialTab?: 'bots' | 'manag
           setAuthUser(null);
         }
       } catch {
-        // keep localStorage user if server is unreachable
       } finally {
         setAuthLoading(false);
       }
@@ -166,49 +191,18 @@ export default function Dashboard({ initialTab }: { initialTab?: 'bots' | 'manag
     checkAuth();
   }, []);
 
+  useEffect(() => {
+    if (location.pathname.includes('operation')) setDashboardTab('operation');
+    else if (location.pathname.includes('bots')) setDashboardTab('bots');
+    else if (location.pathname.includes('panels')) setDashboardTab('management');
+  }, [location.pathname]);
+
   const isAdmin = authUser?.role === 'admin';
   const isStaff = authUser?.role === 'staff';
   const isSubscriber = authUser?.role === 'subscriber';
   const canAccessBots = isAdmin || isStaff;
   const canAccessOperation = isAdmin || isStaff;
   const canAccessPanels = isAdmin || isStaff || isSubscriber;
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-[#020205] text-white flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 border-4 border-[#c5a059] border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-zinc-500 font-bold">جاري التحقق من الهوية...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!authUser) {
-    return <LoginPage onAuthSuccess={handleAuthSuccess} />;
-  }
-
-  const user: UserProfile = {
-    name: authUser.username,
-    tag: authUser.role === 'admin' ? '👑 مدير' : authUser.role === 'staff' ? '🛡️ طاقم' : '👤 مشترك',
-    avatar: authUser.avatar
-  };
-
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
-
-  // Set initial tab based on prop or URL path
-  const [dashboardTab, setDashboardTab] = useState<'bots' | 'management' | 'operation'>(() => {
-    if (initialTab) return initialTab;
-    if (location.pathname.includes('operation')) return 'operation';
-    if (location.pathname.includes('bots')) return 'bots';
-    return 'bots';
-  });
-
-  useEffect(() => {
-    if (location.pathname.includes('operation')) setDashboardTab('operation');
-    else if (location.pathname.includes('bots')) setDashboardTab('bots');
-    else if (location.pathname.includes('panels')) setDashboardTab('management');
-  }, [location.pathname]);
 
   useEffect(() => {
     if (!authUser) return;
@@ -222,39 +216,9 @@ export default function Dashboard({ initialTab }: { initialTab?: 'bots' | 'manag
     }
   }, [dashboardTab, authUser]);
 
-  const changeTab = (tab: 'bots' | 'management' | 'operation') => {
-    setDashboardTab(tab);
-    navigate(`/dashboard/${tab === 'management' ? 'panels' : tab === 'bots' ? 'bots' : 'operation'}`);
-  };
-  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
-  const [config, setConfig] = useState<BotConfig>({
-    instances: []
-  });
-
-  const [ownerIdFilter, setOwnerIdFilter] = useState<string>(() => localStorage.getItem('ownerIdFilter') || '');
-
   useEffect(() => {
     localStorage.setItem('ownerIdFilter', ownerIdFilter);
   }, [ownerIdFilter]);
-
-  const filteredInstances = config.instances.filter(inst => !ownerIdFilter || inst.ownerId === ownerIdFilter);
-  const selectedInstance = filteredInstances.find(i => i.id === selectedInstanceId) || filteredInstances[0];
-
-  const [discordData, setDiscordData] = useState<{ channels: DiscordChannel[], roles: DiscordRole[] }>({
-    channels: [],
-    roles: []
-  });
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ text: string, type: 'success' | 'alert' | 'error' } | null>(null);
-
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deleteTargetOwnerId, setDeleteTargetOwnerId] = useState('');
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [confirmDeleteOwnerId, setConfirmDeleteOwnerId] = useState<string | null>(null);
-
-  const [isOperationsVerified, setIsOperationsVerified] = useState<boolean>(() => !!authUser);
-  const [verifiedUser, setVerifiedUser] = useState<{ id: string; username: string; avatar: string; role?: string } | null>(() => authUser ? { id: authUser.id, username: authUser.username, avatar: authUser.avatar, role: authUser.role } : null);
-  const [verificationError, setVerificationError] = useState<string | null>(null);
 
   useEffect(() => {
     const handleOAuthMessage = (event: MessageEvent) => {
@@ -277,6 +241,95 @@ export default function Dashboard({ initialTab }: { initialTab?: 'bots' | 'manag
     window.addEventListener('message', handleOAuthMessage);
     return () => window.removeEventListener('message', handleOAuthMessage);
   }, [handleAuthSuccess]);
+
+  const safeJsonFetch = async (url: string, options?: RequestInit) => {
+    try {
+      const res = await fetch(url, options);
+      const isJson = res.headers.get('content-type')?.includes('application/json');
+
+      if (!res.ok) {
+        if (isJson) {
+          const data = await res.json();
+          throw new Error(data.error || `خطأ من الخادم: ${res.status}`);
+        } else {
+          const text = await res.text();
+          throw new Error(`خطأ من الخادم (${res.status}): ${text.substring(0, 100)}`);
+        }
+      }
+
+      if (!isJson) {
+        const text = await res.text();
+        throw new Error(`توقعنا JSON ولكن استلمنا: ${text.substring(0, 50)}...`);
+      }
+
+      return await res.json();
+    } catch (err: any) {
+      if (err.message.includes('Unexpected token')) {
+        throw new Error('فشل في قراءة البيانات من الخادم (تنسيق غير مدعوم)');
+      }
+      throw err;
+    }
+  };
+
+  const fetchDiscordData = async (guildId?: string, isManual = false) => {
+    if (!selectedInstanceId) return;
+    try {
+      const gId = guildId || config.globalDiscord?.guildId || '';
+      const data = await safeJsonFetch(`/api/discord/data?instanceId=${selectedInstanceId}&guildId=${gId}`);
+      setDiscordData(data);
+    } catch (err: any) {
+      console.error("Failed to fetch discord data", err);
+      if (isManual || !err.message.includes("البوت غير متصل")) {
+        setMessage({ text: `فشل جلب رتب وقنوات السيرفر: ${err.message}`, type: 'error' });
+      }
+    }
+  };
+
+  const fetchConfig = async () => {
+    try {
+      const data = await safeJsonFetch('/api/config');
+      setConfig(data);
+      if (data.instances && data.instances.length > 0 && !selectedInstanceId) {
+        setSelectedInstanceId(data.instances[0].id);
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch config", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchConfig();
+  }, []);
+
+  const filteredInstances = config.instances.filter(inst => !ownerIdFilter || inst.ownerId === ownerIdFilter);
+  const selectedInstance = filteredInstances.find(i => i.id === selectedInstanceId) || filteredInstances[0];
+
+  useEffect(() => {
+    if (selectedInstance?.status === 'متصل' && selectedInstanceId) {
+      fetchDiscordData(undefined, false);
+    }
+  }, [selectedInstance?.status, selectedInstanceId]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#020205] text-white flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 border-4 border-[#c5a059] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-zinc-500 font-bold">جاري التحقق من الهوية...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return <LoginPage onAuthSuccess={handleAuthSuccess} />;
+  }
+
+  const user: UserProfile = {
+    name: authUser.username,
+    tag: authUser.role === 'admin' ? '👑 مدير' : authUser.role === 'staff' ? '🛡️ طاقم' : '👤 مشترك',
+    avatar: authUser.avatar
+  };
 
   const handleDiscordLogin = async () => {
     setLoading(true);
@@ -334,73 +387,6 @@ export default function Dashboard({ initialTab }: { initialTab?: 'bots' | 'manag
       setMessage({ text: err.message || 'لم يتم العثور على البوت', type: 'error' });
     } finally {
       setLoading(false);
-    }
-  };
-
-
-
-  useEffect(() => {
-    fetchConfig();
-  }, []);
-
-  useEffect(() => {
-    if (selectedInstance?.status === 'متصل' && selectedInstanceId) {
-      fetchDiscordData(undefined, false);
-    }
-  }, [selectedInstance?.status, selectedInstanceId]);
-
-  const safeJsonFetch = async (url: string, options?: RequestInit) => {
-    try {
-      const res = await fetch(url, options);
-      const isJson = res.headers.get('content-type')?.includes('application/json');
-
-      if (!res.ok) {
-        if (isJson) {
-          const data = await res.json();
-          throw new Error(data.error || `خطأ من الخادم: ${res.status}`);
-        } else {
-          const text = await res.text();
-          throw new Error(`خطأ من الخادم (${res.status}): ${text.substring(0, 100)}`);
-        }
-      }
-
-      if (!isJson) {
-        const text = await res.text();
-        throw new Error(`توقعنا JSON ولكن استلمنا: ${text.substring(0, 50)}...`);
-      }
-
-      return await res.json();
-    } catch (err: any) {
-      if (err.message.includes('Unexpected token')) {
-        throw new Error('فشل في قراءة البيانات من الخادم (تنسيق غير مدعوم)');
-      }
-      throw err;
-    }
-  };
-
-  const fetchDiscordData = async (guildId?: string, isManual = false) => {
-    if (!selectedInstanceId) return;
-    try {
-      const gId = guildId || config.globalDiscord?.guildId || '';
-      const data = await safeJsonFetch(`/api/discord/data?instanceId=${selectedInstanceId}&guildId=${gId}`);
-      setDiscordData(data);
-    } catch (err: any) {
-      console.error("Failed to fetch discord data", err);
-      if (isManual || !err.message.includes("البوت غير متصل")) {
-        setMessage({ text: `فشل جلب رتب وقنوات السيرفر: ${err.message}`, type: 'error' });
-      }
-    }
-  };
-
-  const fetchConfig = async () => {
-    try {
-      const data = await safeJsonFetch('/api/config');
-      setConfig(data);
-      if (data.instances && data.instances.length > 0 && !selectedInstanceId) {
-        setSelectedInstanceId(data.instances[0].id);
-      }
-    } catch (err: any) {
-      console.error("Failed to fetch config", err);
     }
   };
 
