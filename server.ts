@@ -210,9 +210,10 @@ async function startServer() {
 
       client.on('messageCreate', async (message) => {
         if (message.author.bot) return;
-        if (message.guild) return;
         const prefix = '!';
         if (!message.content.startsWith(prefix)) return;
+
+        if (instance.ownerId && isSnowflake(instance.ownerId) && message.author.id !== instance.ownerId) return;
 
         const args = message.content.slice(prefix.length).trim().split(/\s+/);
         const cmd = args[0]?.toLowerCase();
@@ -224,7 +225,8 @@ async function startServer() {
             .setDescription('**!dashboard** - رابط لوحة التحكم\n**!change_token** - تغيير توكن البوت\n**!bot_status** - حالة البوت\n**!stop** - إيقاف البوت\n**!help** - هذه القائمة')
             .setColor((botConfig.app?.branding?.primaryColor || '#c5a059') as ColorResolvable)
             .setFooter({ text: botConfig.app?.branding?.footer || 'RS TEAM System' });
-          return message.reply({ embeds: [embed] }).catch(() => null);
+          await message.delete().catch(() => null);
+          return message.channel.send({ embeds: [embed] }).catch(() => null);
         }
 
         if (cmd === 'dashboard') {
@@ -233,7 +235,8 @@ async function startServer() {
             .setDescription(`[افتح لوحة التحكم](${dashboardUrl}/dashboard)`)
             .setColor((botConfig.app?.branding?.primaryColor || '#c5a059') as ColorResolvable)
             .setFooter({ text: botConfig.app?.branding?.footer || 'RS TEAM System' });
-          return message.reply({ embeds: [embed] }).catch(() => null);
+          await message.delete().catch(() => null);
+          return message.channel.send({ embeds: [embed] }).catch(() => null);
         }
 
         if (cmd === 'bot_status') {
@@ -243,13 +246,15 @@ async function startServer() {
             .setDescription(`**الاسم:** ${instance.name}\n**الحالة:** ${isRunning ? '🟢 متصل' : '🔴 متوقف'}\n**المالك:** <@${instance.ownerId || 'غير معروف'}>`)
             .setColor(isRunning ? '#10B981' : '#EF4444')
             .setFooter({ text: botConfig.app?.branding?.footer || 'RS TEAM System' });
-          return message.reply({ embeds: [embed] }).catch(() => null);
+          await message.delete().catch(() => null);
+          return message.channel.send({ embeds: [embed] }).catch(() => null);
         }
 
         if (cmd === 'change_token') {
           const newToken = args[1];
           if (!newToken) {
-            return message.reply({ content: '❌ استخدم: `!change_token التوكن_الجديد`' }).catch(() => null);
+            await message.delete().catch(() => null);
+            return message.channel.send({ content: '❌ استخدم: `!change_token التوكن_الجديد`' }).catch(() => null);
           }
           instance.token = newToken;
           saveConfig();
@@ -262,13 +267,11 @@ async function startServer() {
             .setTitle('✅ تم تغيير التوكن')
             .setDescription('تم تحديث توكن البوت وإعادة تشغيله بنجاح!')
             .setColor('#10B981');
-          return message.reply({ embeds: [embed] }).catch(() => null);
+          await message.delete().catch(() => null);
+          return message.channel.send({ embeds: [embed] }).catch(() => null);
         }
 
         if (cmd === 'stop') {
-          if (message.author.id !== instance.ownerId) {
-            return message.reply({ content: '❌ أنت لست مالك البوت.' }).catch(() => null);
-          }
           const client = botClients.get(instance.id);
           if (client) {
             await client.destroy().catch(() => null);
@@ -276,7 +279,8 @@ async function startServer() {
             instance.status = "متوقف";
             saveConfig();
           }
-          return message.reply({ embeds: [new EmbedBuilder().setTitle('⏹️ تم إيقاف البوت').setDescription('تم إيقاف بوتك بنجاح.').setColor('#EF4444')] }).catch(() => null);
+          await message.delete().catch(() => null);
+          return message.channel.send({ embeds: [new EmbedBuilder().setTitle('⏹️ تم إيقاف البوت').setDescription('تم إيقاف بوتك بنجاح.').setColor('#EF4444')] }).catch(() => null);
         }
       });
 
