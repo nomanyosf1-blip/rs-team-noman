@@ -6,12 +6,14 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
 import LandingPage from './components/LandingPage';
+import RunPage from './components/RunPage';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/run" element={<RunPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/bots" element={<Dashboard initialTab="bots" />} />
         <Route path="/dashboard/panels" element={<Dashboard initialTab="management" />} />

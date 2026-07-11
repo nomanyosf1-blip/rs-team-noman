@@ -404,6 +404,102 @@ async function startServer() {
 
           await createTicket(interaction, sector, answers, instance);
         }
+
+        if (interaction.customId === 'start_bot_modal') {
+          const token = interaction.fields.getTextInputValue('bot_token');
+          const userId = interaction.fields.getTextInputValue('user_id');
+
+          if (!isSnowflake(userId)) {
+            return interaction.reply({
+              embeds: [new EmbedBuilder()
+                .setTitle('❌ معرف غير صالح')
+                .setDescription('يجب أن يكون معرف ديسكورد رقماً مكوناً من 17-21 خاماً.')
+                .setColor('#EF4444')
+              ],
+              ephemeral: true
+            });
+          }
+
+          await interaction.deferReply({ ephemeral: true });
+
+          const existingInstance = botConfig.instances.find((i: any) => i.ownerId === userId);
+          if (existingInstance) {
+            existingInstance.token = token;
+            saveConfig();
+
+            if (botClients.has(existingInstance.id)) {
+              await botClients.get(existingInstance.id)?.destroy().catch(() => null);
+              botClients.delete(existingInstance.id);
+            }
+
+            await startBotInstance(existingInstance.id);
+
+            try {
+              const dmUser = await interaction.client.users.fetch(userId);
+              const dashboardUrl = process.env.APP_URL || `http://localhost:${botConfig.server?.port || 3000}`;
+
+              const dmEmbed = new EmbedBuilder()
+                .setTitle('✅ تم تحديث وتشغيل البوت بنجاح!')
+                .setDescription(`تم تحديث توكن بوتك وتشغيله بنجاح!\n\n🔗 رابط لوحة التحكم: [اضغط هنا](${dashboardUrl}/dashboard)\n\nاستخدم هذا الرابط للدخول إلى لوحة التحكم الخاصة بك.`)
+                .setColor('#10B981')
+                .setTimestamp();
+
+              await dmUser.send({ embeds: [dmEmbed] });
+            } catch (err) {
+              console.error('Failed to DM user:', err);
+            }
+
+            return interaction.editReply({
+              embeds: [new EmbedBuilder()
+                .setTitle('✅ تم التحديث والتشغيل!')
+                .setDescription('تم تحديث توكن بوتك وتشغيله بنجاح! تحقق من الرسائل الخاصة (DM).')
+                .setColor('#10B981')
+              ]
+            });
+          }
+
+          const instanceId = `inst-${Date.now()}`;
+          const newInstance = {
+            id: instanceId,
+            name: `بوت ${interaction.user.username}`,
+            token: token,
+            status: "متوقف",
+            panels: [],
+            ownerId: userId,
+            systemEmbeds: {
+              alreadyHasTicket: { title: "❌ لديك تذكرة مفتوحة", description: "أغلق تذكرتك الحالية أولاً", color: "#FF0000" },
+              ticketWarning: { title: "⚠️ تنبيه رسمي", description: "تم تنبيهك في {channel}\nالسبب: {reason}", color: "#FFA500" }
+            }
+          };
+
+          botConfig.instances.push(newInstance);
+          saveConfig();
+
+          await startBotInstance(instanceId);
+
+          try {
+            const dmUser = await interaction.client.users.fetch(userId);
+            const dashboardUrl = process.env.APP_URL || `http://localhost:${botConfig.server?.port || 3000}`;
+
+            const dmEmbed = new EmbedBuilder()
+              .setTitle('✅ تم تشغيل البوت بنجاح!')
+              .setDescription(`تم تشغيل بوتك بنجاح!\n\n🔗 رابط لوحة التحكم: [اضغط هنا](${dashboardUrl}/dashboard)\n\nاستخدم هذا الرابط للدخول إلى لوحة التحكم الخاصة بك.`)
+              .setColor('#10B981')
+              .setTimestamp();
+
+            await dmUser.send({ embeds: [dmEmbed] });
+          } catch (err) {
+            console.error('Failed to DM user:', err);
+          }
+
+          await interaction.editReply({
+            embeds: [new EmbedBuilder()
+              .setTitle('✅ تم التشغيل بنجاح!')
+              .setDescription('تم تشغيل بوتك بنجاح! تحقق من الرسائل الخاصة (DM) للحصول على رابط لوحة التحكم.')
+              .setColor('#10B981')
+            ]
+          });
+        }
       }
 
       if (interaction.isButton()) {
@@ -500,6 +596,32 @@ async function startServer() {
             return newRow;
           });
           await originalMessage.edit({ components: updatedComponents }).catch(() => null);
+        }
+
+        else if (customId === 'start_bot_btn') {
+          const modal = new ModalBuilder()
+            .setCustomId('start_bot_modal')
+            .setTitle('تشغيل البوت');
+
+          const tokenInput = new TextInputBuilder()
+            .setCustomId('bot_token')
+            .setLabel('توكن البوت (Bot Token)')
+            .setPlaceholder('أدخل توكن البوت هنا...')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+          const userIdInput = new TextInputBuilder()
+            .setCustomId('user_id')
+            .setLabel('معرف ديسكورد (User ID)')
+            .setPlaceholder('مثال: 412345678901234567')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+          const modalRow1 = new ActionRowBuilder<TextInputBuilder>().addComponents(tokenInput);
+          const modalRow2 = new ActionRowBuilder<TextInputBuilder>().addComponents(userIdInput);
+
+          modal.addComponents(modalRow1, modalRow2);
+          await interaction.showModal(modal);
         }
       }
     } catch (err) {
@@ -995,6 +1117,174 @@ async function startServer() {
       console.error("[DEPLOY_ERR]", err);
       res.status(500).json({ error: `فشل إرسال الرسالة إلى Discord. يرجى التأكد من أن التوكن صالح وأن البوت مضاف للسيرفر ولديه صلاحيات إرسال الرسائل ورؤية القناة. الخطأ: ${err.message}` });
     }
+  });
+
+  apiRouter.post("/deploy-run-panel", async (req, res) => {
+    const { instanceId, channelId } = req.body;
+
+    const instance = botConfig.instances.find(i => i.id === instanceId);
+    if (!instance) {
+      return res.status(404).json({ error: "لم يتم العثور على البوت" });
+    }
+
+    let client = botClients.get(instanceId);
+    if (!client || !client.isReady()) {
+      if (instance.token && instance.token.trim() !== "" && instance.token !== "YOUR_DISCORD_BOT_TOKEN_HERE") {
+        await startBotInstance(instanceId).catch(() => null);
+        for (let i = 0; i < 8; i++) {
+          client = botClients.get(instanceId);
+          if (client?.isReady()) break;
+          await new Promise(r => setTimeout(r, 500));
+        }
+      }
+    }
+
+    client = botClients.get(instanceId);
+    if (!client || !client.isReady()) {
+      return res.status(400).json({ error: "البوت غير متصل. يرجى تشغيل البوت أولاً." });
+    }
+
+    if (!channelId) {
+      return res.status(400).json({ error: "يرجى تحديد قناة لإرسال لوحة التشغيل." });
+    }
+
+    try {
+      const channel = await client.channels.fetch(channelId);
+      if (!channel || !channel.isTextBased()) {
+        return res.status(400).json({ error: "القناة غير صالحة أو غير موجودة." });
+      }
+
+      const embed = new EmbedBuilder()
+        .setTitle('🚀 تشغيل البوت')
+        .setDescription('اضغط على الزر أدناه لتشغيل البوت الخاص بك.\n\nسيتم طلب توكن البوت ومعرف ديسكورد الخاص بك.\nبعد الإدخال، سيتم تشغيل البوت تلقائياً وإرسال رابط لوحة التحكم إليك.')
+        .setColor((botConfig.app?.branding?.primaryColor || '#c5a059') as ColorResolvable)
+        .setFooter({ text: botConfig.app?.branding?.footer || 'RS TEAM System' });
+
+      if (botConfig.app?.branding?.logo) {
+        embed.setThumbnail(botConfig.app.branding.logo);
+      }
+
+      const button = new ButtonBuilder()
+        .setCustomId('start_bot_btn')
+        .setLabel('تشغيل البوت')
+        .setStyle(ButtonStyle.Success)
+        .setEmoji('▶️');
+
+      const row = new ActionRowBuilder().addComponents(button);
+
+      await (channel as any).send({ embeds: [embed], components: [row] });
+
+      res.json({ message: "تم إرسال لوحة التشغيل بنجاح!" });
+    } catch (err: any) {
+      console.error("[DEPLOY_RUN_PANEL_ERR]", err);
+      res.status(500).json({ error: `فشل إرسال لوحة التشغيل: ${err.message}` });
+    }
+  });
+
+  apiRouter.post("/deploy-run-webhook", async (req, res) => {
+    const { webhookUrl } = req.body;
+
+    if (!webhookUrl || !webhookUrl.includes('discord.com/api/webhooks')) {
+      return res.status(400).json({ error: "رابط الويب هوك غير صالح" });
+    }
+
+    const baseUrl = process.env.APP_URL || `http://localhost:${botConfig.server?.port || 3000}`;
+    const runUrl = `${baseUrl}/run`;
+
+    const embed: any = {
+      title: '🚀 تشغيل البوت',
+      description: `اضغط على الزر أدناه لتشغيل البوت الخاص بك.\n\nسيتم طلب توكن البوت ومعرف ديسكورد الخاص بك.\nبعد الإدخال، سيتم تشغيل البوت تلقائياً وإرسال رابط لوحة التحكم إليك.\n\n🔗 **رابط التشغيل:** [اضغط هنا](${runUrl})`,
+      color: parseInt((botConfig.app?.branding?.primaryColor || '#c5a059').replace('#', ''), 16),
+      footer: { text: botConfig.app?.branding?.footer || 'RS TEAM System' }
+    };
+
+    if (botConfig.app?.branding?.logo) {
+      embed.thumbnail = { url: botConfig.app.branding.logo };
+    }
+
+    const payload: any = { embeds: [embed] };
+
+    if (process.env.APP_URL) {
+      payload.components = [{
+        type: 1,
+        components: [{
+          type: 2,
+          label: 'تشغيل البوت',
+          style: 5,
+          url: runUrl,
+          emoji: { name: '▶️' }
+        }]
+      }];
+    }
+
+    try {
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error("[WEBHOOK_ERR]", errText);
+        throw new Error(`فشل الإرسال عبر الويب هوك (${response.status})`);
+      }
+
+      res.json({ message: "تم إرسال لوحة التشغيل عبر الويب هوك بنجاح!" });
+    } catch (err: any) {
+      console.error("[DEPLOY_WEBHOOK_ERR]", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  apiRouter.post("/start-from-web", async (req, res) => {
+    const { token, userId } = req.body;
+
+    if (!token || !userId) {
+      return res.status(400).json({ error: "يرجى ملء جميع الحقول" });
+    }
+
+    if (!isSnowflake(userId)) {
+      return res.status(400).json({ error: "معرف ديسكورد غير صالح. يجب أن يكون رقماً من 17-21 خاماً." });
+    }
+
+    const existingInstance = botConfig.instances.find((i: any) => i.ownerId === userId);
+    if (existingInstance) {
+      existingInstance.token = token;
+      saveConfig();
+
+      if (botClients.has(existingInstance.id)) {
+        await botClients.get(existingInstance.id)?.destroy().catch(() => null);
+        botClients.delete(existingInstance.id);
+      }
+
+      await startBotInstance(existingInstance.id);
+
+      const dashboardUrl = process.env.APP_URL || `http://localhost:${botConfig.server?.port || 3000}`;
+      return res.json({ success: true, dashboardUrl: `${dashboardUrl}/dashboard`, message: "تم تحديث وتشغيل البوت بنجاح!" });
+    }
+
+    const instanceId = `inst-${Date.now()}`;
+    const newInstance = {
+      id: instanceId,
+      name: `بوت ${userId}`,
+      token: token,
+      status: "متوقف",
+      panels: [],
+      ownerId: userId,
+      systemEmbeds: {
+        alreadyHasTicket: { title: "❌ لديك تذكرة مفتوحة", description: "أغلق تذكرتك الحالية أولاً", color: "#FF0000" },
+        ticketWarning: { title: "⚠️ تنبيه رسمي", description: "تم تنبيهك في {channel}\nالسبب: {reason}", color: "#FFA500" }
+      }
+    };
+
+    botConfig.instances.push(newInstance);
+    saveConfig();
+
+    await startBotInstance(instanceId);
+
+    const dashboardUrl = process.env.APP_URL || `http://localhost:${botConfig.server?.port || 3000}`;
+    res.json({ success: true, dashboardUrl: `${dashboardUrl}/dashboard`, message: "تم تشغيل البوت بنجاح!" });
   });
 
   apiRouter.post("/start", async (req, res) => {
