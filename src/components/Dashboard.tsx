@@ -201,7 +201,7 @@ export default function Dashboard({ initialTab }: { initialTab?: 'bots' | 'manag
   const isAdmin = authUser?.role === 'admin';
   const isStaff = authUser?.role === 'staff';
   const isSubscriber = authUser?.role === 'subscriber';
-  const canAccessBots = isAdmin || isStaff;
+  const canAccessBots = isAdmin || isStaff || isSubscriber;
   const canAccessOperation = isAdmin || isStaff;
   const canAccessPanels = isAdmin || isStaff || isSubscriber;
 
@@ -302,7 +302,8 @@ export default function Dashboard({ initialTab }: { initialTab?: 'bots' | 'manag
     fetchConfig();
   }, []);
 
-  const filteredInstances = config.instances.filter(inst => !ownerIdFilter || inst.ownerId === ownerIdFilter);
+  const effectiveOwnerIdFilter = (isAdmin || isStaff) ? ownerIdFilter : (authUser?.id || '');
+  const filteredInstances = config.instances.filter(inst => !effectiveOwnerIdFilter || inst.ownerId === effectiveOwnerIdFilter);
   const selectedInstance = filteredInstances.find(i => i.id === selectedInstanceId) || filteredInstances[0];
 
   useEffect(() => {
@@ -838,32 +839,34 @@ export default function Dashboard({ initialTab }: { initialTab?: 'bots' | 'manag
                       </div>
                     </header>
 
-                   <div className="bg-zinc-900/40 border border-zinc-800 rounded-[2rem] p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-6 text-right" dir="rtl">
-                      <div className="space-y-1">
-                        <h3 className="text-lg font-black text-white">البحث عن بوتك باستخدام معرف Discord</h3>
-                        <p className="text-zinc-500 font-bold text-xs">أدخل معرف ديسكورد (User ID) الخاص بك لعرض وإدارة البوتات المرتبطة بحسابك فقط.</p>
-                      </div>
-                      <div className="relative w-full md:w-auto flex flex-wrap gap-3">
-                        <input
-                          type="text"
-                          value={ownerIdFilter}
-                          onChange={(e) => setOwnerIdFilter(e.target.value)}
-                          placeholder="مثال: 412345678901234567"
-                          className="w-full md:w-72 bg-black/50 border border-zinc-800 rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-[#c5a059] outline-none transition-all text-white font-mono text-left"
-                          dir="ltr"
-                        />
-                        {ownerIdFilter && (
-                          <button
-                            onClick={() => setOwnerIdFilter('')}
-                            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-400 px-4 py-3 rounded-xl text-xs font-bold transition-all"
-                          >
-                            مسح
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                   {(isAdmin || isStaff) && (
+                     <div className="bg-zinc-900/40 border border-zinc-800 rounded-[2rem] p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-6 text-right" dir="rtl">
+                       <div className="space-y-1">
+                         <h3 className="text-lg font-black text-white">البحث عن بوت باستخدام معرف Discord</h3>
+                         <p className="text-zinc-500 font-bold text-xs">أدخل معرف ديسكورد (User ID) لعرض وإدارة البوتات المرتبطة بحساب محدد.</p>
+                       </div>
+                       <div className="relative w-full md:w-auto flex flex-wrap gap-3">
+                         <input
+                           type="text"
+                           value={ownerIdFilter}
+                           onChange={(e) => setOwnerIdFilter(e.target.value)}
+                           placeholder="مثال: 412345678901234567"
+                           className="w-full md:w-72 bg-black/50 border border-zinc-800 rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-[#c5a059] outline-none transition-all text-white font-mono text-left"
+                           dir="ltr"
+                         />
+                         {ownerIdFilter && (
+                           <button
+                             onClick={() => setOwnerIdFilter('')}
+                             className="bg-zinc-800 hover:bg-zinc-700 text-zinc-400 px-4 py-3 rounded-xl text-xs font-bold transition-all"
+                           >
+                             مسح
+                           </button>
+                         )}
+                       </div>
+                     </div>
+                   )}
 
-                   {!ownerIdFilter ? (
+                   {(isAdmin || isStaff) && !ownerIdFilter ? (
                       <div className="bg-zinc-900/20 border border-zinc-800/80 rounded-[2.5rem] p-12 text-center space-y-6 flex flex-col items-center justify-center max-w-2xl mx-auto my-12" dir="rtl">
                         <div className="w-20 h-20 bg-[#c5a059]/10 border border-[#c5a059]/20 text-[#c5a059] rounded-[2rem] flex items-center justify-center">
                           <Bot size={40} />
