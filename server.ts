@@ -208,6 +208,78 @@ async function startServer() {
         handleInteraction(interaction, instance.id);
       });
 
+      client.on('messageCreate', async (message) => {
+        if (message.author.bot) return;
+        if (message.guild) return;
+        const prefix = '!';
+        if (!message.content.startsWith(prefix)) return;
+
+        const args = message.content.slice(prefix.length).trim().split(/\s+/);
+        const cmd = args[0]?.toLowerCase();
+        const dashboardUrl = process.env.APP_URL || `http://localhost:${botConfig.server?.port || 3000}`;
+
+        if (cmd === 'help') {
+          const embed = new EmbedBuilder()
+            .setTitle('📖 قائمة الأوامر')
+            .setDescription('**!dashboard** - رابط لوحة التحكم\n**!change_token** - تغيير توكن البوت\n**!bot_status** - حالة البوت\n**!stop** - إيقاف البوت\n**!help** - هذه القائمة')
+            .setColor((botConfig.app?.branding?.primaryColor || '#c5a059') as ColorResolvable)
+            .setFooter({ text: botConfig.app?.branding?.footer || 'RS TEAM System' });
+          return message.reply({ embeds: [embed] }).catch(() => null);
+        }
+
+        if (cmd === 'dashboard') {
+          const embed = new EmbedBuilder()
+            .setTitle('🔗 لوحة التحكم')
+            .setDescription(`[افتح لوحة التحكم](${dashboardUrl}/dashboard)`)
+            .setColor((botConfig.app?.branding?.primaryColor || '#c5a059') as ColorResolvable)
+            .setFooter({ text: botConfig.app?.branding?.footer || 'RS TEAM System' });
+          return message.reply({ embeds: [embed] }).catch(() => null);
+        }
+
+        if (cmd === 'bot_status') {
+          const isRunning = botClients.has(instance.id) && botClients.get(instance.id)?.isReady();
+          const embed = new EmbedBuilder()
+            .setTitle('📊 حالة البوت')
+            .setDescription(`**الاسم:** ${instance.name}\n**الحالة:** ${isRunning ? '🟢 متصل' : '🔴 متوقف'}\n**المالك:** <@${instance.ownerId || 'غير معروف'}>`)
+            .setColor(isRunning ? '#10B981' : '#EF4444')
+            .setFooter({ text: botConfig.app?.branding?.footer || 'RS TEAM System' });
+          return message.reply({ embeds: [embed] }).catch(() => null);
+        }
+
+        if (cmd === 'change_token') {
+          const newToken = args[1];
+          if (!newToken) {
+            return message.reply({ content: '❌ استخدم: `!change_token التوكن_الجديد`' }).catch(() => null);
+          }
+          instance.token = newToken;
+          saveConfig();
+          if (botClients.has(instance.id)) {
+            await botClients.get(instance.id)?.destroy().catch(() => null);
+            botClients.delete(instance.id);
+          }
+          await startBotInstance(instance.id);
+          const embed = new EmbedBuilder()
+            .setTitle('✅ تم تغيير التوكن')
+            .setDescription('تم تحديث توكن البوت وإعادة تشغيله بنجاح!')
+            .setColor('#10B981');
+          return message.reply({ embeds: [embed] }).catch(() => null);
+        }
+
+        if (cmd === 'stop') {
+          if (message.author.id !== instance.ownerId) {
+            return message.reply({ content: '❌ أنت لست مالك البوت.' }).catch(() => null);
+          }
+          const client = botClients.get(instance.id);
+          if (client) {
+            await client.destroy().catch(() => null);
+            botClients.delete(instance.id);
+            instance.status = "متوقف";
+            saveConfig();
+          }
+          return message.reply({ embeds: [new EmbedBuilder().setTitle('⏹️ تم إيقاف البوت').setDescription('تم إيقاف بوتك بنجاح.').setColor('#EF4444')] }).catch(() => null);
+        }
+      });
+
       botClients.set(instanceId, client);
       await client.login(tokenToUse);
     } catch (err: any) {
