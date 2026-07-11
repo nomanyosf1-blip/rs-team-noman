@@ -146,11 +146,15 @@ async function startServer() {
         botClients.delete(instanceId);
       }
 
-      const intents = (botConfig.botSettings?.intents || [
+      const intentNames = botConfig.botSettings?.intents || [
         'Guilds', 
         'GuildMessages', 
         'MessageContent'
-      ]).map((intent: string) => (GatewayIntentBits as any)[intent]);
+      ];
+      if (!intentNames.includes('DirectMessages')) {
+        intentNames.push('DirectMessages');
+      }
+      const intents = intentNames.map((intent: string) => (GatewayIntentBits as any)[intent]);
 
       const client = new Client({
         intents: intents
@@ -217,7 +221,7 @@ async function startServer() {
 
         const args = message.content.slice(prefix.length).trim().split(/\s+/);
         const cmd = args[0]?.toLowerCase();
-        const dashboardUrl = process.env.APP_URL || `http://localhost:${botConfig.server?.port || 3000}`;
+        const dashboardUrl = process.env.APP_URL || 'https://rs-team-noman-production.up.railway.app';
 
         if (cmd === 'help') {
           const embed = new EmbedBuilder()
@@ -463,7 +467,7 @@ async function startServer() {
     const instance = botConfig.instances.find((i: any) => i.id === instanceId);
     if (!instance) return;
 
-    const dashboardUrl = process.env.APP_URL || `http://localhost:${botConfig.server?.port || 3000}`;
+    const dashboardUrl = process.env.APP_URL || 'https://rs-team-noman-production.up.railway.app';
 
     if (interaction.isChatInputCommand()) {
       if (!interaction.guild) {
@@ -631,7 +635,7 @@ async function startServer() {
 
             try {
               const dmUser = await interaction.client.users.fetch(userId);
-              const dashboardUrl = process.env.APP_URL || `http://localhost:${botConfig.server?.port || 3000}`;
+              const dashboardUrl = process.env.APP_URL || 'https://rs-team-noman-production.up.railway.app';
 
               const dmEmbed = new EmbedBuilder()
                 .setTitle('✅ تم تحديث وتشغيل البوت بنجاح!')
@@ -684,7 +688,7 @@ async function startServer() {
 
           try {
             const dmUser = await interaction.client.users.fetch(userId);
-            const dashboardUrl = process.env.APP_URL || `http://localhost:${botConfig.server?.port || 3000}`;
+            const dashboardUrl = process.env.APP_URL || 'https://rs-team-noman-production.up.railway.app';
 
             const dmEmbed = new EmbedBuilder()
               .setTitle('✅ تم تشغيل البوت بنجاح!')
@@ -1507,7 +1511,7 @@ async function startServer() {
 
       await startBotInstance(existingInstance.id);
 
-      const dashboardUrl = process.env.APP_URL || `http://localhost:${botConfig.server?.port || 3000}`;
+      const dashboardUrl = process.env.APP_URL || 'https://rs-team-noman-production.up.railway.app';
       return res.json({ success: true, dashboardUrl: `${dashboardUrl}/dashboard`, message: "تم تحديث وتشغيل البوت بنجاح!" });
     }
 
@@ -1530,7 +1534,7 @@ async function startServer() {
 
     await startBotInstance(instanceId);
 
-    const dashboardUrl = process.env.APP_URL || `http://localhost:${botConfig.server?.port || 3000}`;
+    const dashboardUrl = process.env.APP_URL || 'https://rs-team-noman-production.up.railway.app';
     res.json({ success: true, dashboardUrl: `${dashboardUrl}/dashboard`, message: "تم تشغيل البوت بنجاح!" });
   });
 
