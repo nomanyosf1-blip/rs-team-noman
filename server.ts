@@ -658,10 +658,48 @@ async function startServer() {
               }
             } catch {}
 
+            const controlEmbed = new EmbedBuilder()
+              .setTitle('🎮 لوحة تحكم البوت')
+              .setDescription(`بوت **${instance.name}** يعمل بنجاح!\n\nاستخدم الأزرار أدناه لإدارة بوتك:`)
+              .setColor((botConfig.app?.branding?.primaryColor || '#c5a059') as ColorResolvable)
+              .setFooter({ text: `المالك: ${interaction.user.username} | ${instance.id}` })
+              .setTimestamp();
+
+            const controlRow1 = new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`ctrl_restart:${userId}`)
+                .setLabel('إعادة التشغيل')
+                .setEmoji('🔄')
+                .setStyle(ButtonStyle.Primary),
+              new ButtonBuilder()
+                .setCustomId(`ctrl_stop:${userId}`)
+                .setLabel('إيقاف البوت')
+                .setEmoji('⏹️')
+                .setStyle(ButtonStyle.Danger)
+            );
+
+            const controlRow2 = new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`ctrl_change_token:${userId}`)
+                .setLabel('تغيير التوكن')
+                .setEmoji('🔑')
+                .setStyle(ButtonStyle.Secondary),
+              new ButtonBuilder()
+                .setCustomId(`ctrl_status:${userId}`)
+                .setLabel('حالة البوت')
+                .setEmoji('📊')
+                .setStyle(ButtonStyle.Secondary)
+            );
+
+            await interaction.channel?.send({
+              embeds: [controlEmbed],
+              components: [controlRow1 as any, controlRow2 as any]
+            }).catch(() => null);
+
             return interaction.editReply({
               embeds: [new EmbedBuilder()
                 .setTitle('✅ تم التحديث والتشغيل!')
-                .setDescription('تم تحديث توكن بوتك وتشغيله بنجاح! تحقق من الرسائل الخاصة (DM).')
+                .setDescription('تم تحديث توكن بوتك وتشغيله بنجاح! شوف لوحة التحكم بالأسفل.')
                 .setColor('#10B981')
               ]
             });
@@ -711,10 +749,48 @@ async function startServer() {
             }
           } catch {}
 
+          const controlEmbed = new EmbedBuilder()
+            .setTitle('🎮 لوحة تحكم البوت')
+            .setDescription(`بوت **${newInstance.name}** يعمل بنجاح!\n\nاستخدم الأزرار أدناه لإدارة بوتك:`)
+            .setColor((botConfig.app?.branding?.primaryColor || '#c5a059') as ColorResolvable)
+            .setFooter({ text: `المالك: ${interaction.user.username} | ${instanceId}` })
+            .setTimestamp();
+
+          const controlRow1 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId(`ctrl_restart:${userId}`)
+              .setLabel('إعادة التشغيل')
+              .setEmoji('🔄')
+              .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+              .setCustomId(`ctrl_stop:${userId}`)
+              .setLabel('إيقاف البوت')
+              .setEmoji('⏹️')
+              .setStyle(ButtonStyle.Danger)
+          );
+
+          const controlRow2 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId(`ctrl_change_token:${userId}`)
+              .setLabel('تغيير التوكن')
+              .setEmoji('🔑')
+              .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+              .setCustomId(`ctrl_status:${userId}`)
+              .setLabel('حالة البوت')
+              .setEmoji('📊')
+              .setStyle(ButtonStyle.Secondary)
+          );
+
+          await interaction.channel?.send({
+            embeds: [controlEmbed],
+            components: [controlRow1 as any, controlRow2 as any]
+          }).catch(() => null);
+
           await interaction.editReply({
             embeds: [new EmbedBuilder()
               .setTitle('✅ تم التشغيل بنجاح!')
-              .setDescription('تم تشغيل بوتك بنجاح! تحقق من الرسائل الخاصة (DM) للحصول على رابط لوحة التحكم.')
+              .setDescription('تم تشغيل بوتك بنجاح! شوف لوحة التحكم بالأسفل.')
               .setColor('#10B981')
             ]
           });
@@ -853,6 +929,96 @@ async function startServer() {
 
           modal.addComponents(modalRow1, modalRow2);
           await interaction.showModal(modal);
+        }
+
+        else if (customId.startsWith('ctrl_restart:') || customId.startsWith('ctrl_stop:') || customId.startsWith('ctrl_change_token:') || customId.startsWith('ctrl_status:')) {
+          const targetUserId = customId.split(':')[1];
+          if (interaction.user.id !== targetUserId) {
+            return interaction.reply({
+              embeds: [new EmbedBuilder().setTitle('🔒 لوحة تحكم خاصة').setDescription('هذه الأزرار مخصصة لمالك البوت فقط.').setColor('#EF4444')],
+              ephemeral: true
+            }).catch(() => null);
+          }
+
+          const targetInstance = botConfig.instances.find((i: any) => i.ownerId === targetUserId);
+          if (!targetInstance) {
+            return interaction.reply({ embeds: [new EmbedBuilder().setTitle('❌ بوت غير موجود').setDescription('لم يتم العثور على بوتك.').setColor('#EF4444')], ephemeral: true }).catch(() => null);
+          }
+
+          if (customId.startsWith('ctrl_stop:')) {
+            const client = botClients.get(targetInstance.id);
+            if (client) {
+              await client.destroy().catch(() => null);
+              botClients.delete(targetInstance.id);
+              targetInstance.status = "متوقف";
+              saveConfig();
+            }
+            const embed = new EmbedBuilder().setTitle('⏹️ تم إيقاف البوت').setDescription(`تم إيقاف **${targetInstance.name}** بنجاح.`).setColor('#EF4444');
+            const row = new ActionRowBuilder().addComponents(
+              new ButtonBuilder().setCustomId(`ctrl_restart:${targetUserId}`).setLabel('إعادة التشغيل').setEmoji('🔄').setStyle(ButtonStyle.Success)
+            );
+            return interaction.update({ embeds: [embed], components: [row as any] }).catch(() => null);
+          }
+
+          if (customId.startsWith('ctrl_restart:')) {
+            if (botClients.has(targetInstance.id)) {
+              await botClients.get(targetInstance.id)?.destroy().catch(() => null);
+              botClients.delete(targetInstance.id);
+            }
+            await startBotInstance(targetInstance.id);
+            const embed = new EmbedBuilder().setTitle('🔄 تم إعادة التشغيل').setDescription(`تم إعادة تشغيل **${targetInstance.name}** بنجاح!`).setColor('#10B981');
+            const row = new ActionRowBuilder().addComponents(
+              new ButtonBuilder().setCustomId(`ctrl_stop:${targetUserId}`).setLabel('إيقاف البوت').setEmoji('⏹️').setStyle(ButtonStyle.Danger)
+            );
+            return interaction.update({ embeds: [embed], components: [row as any] }).catch(() => null);
+          }
+
+          if (customId.startsWith('ctrl_change_token:')) {
+            const modal = new ModalBuilder().setCustomId(`ctrl_change_token_modal:${targetUserId}`).setTitle('تغيير التوكن');
+            const input = new TextInputBuilder().setCustomId('new_token').setLabel('التوكن الجديد').setPlaceholder('الصق التوكن الجديد هنا...').setStyle(TextInputStyle.Short).setRequired(true);
+            const row = new ActionRowBuilder<TextInputBuilder>().addComponents(input);
+            modal.addComponents(row);
+            return interaction.showModal(modal).catch(() => null);
+          }
+
+          if (customId.startsWith('ctrl_status:')) {
+            const isRunning = botClients.has(targetInstance.id) && botClients.get(targetInstance.id)?.isReady();
+            const embed = new EmbedBuilder()
+              .setTitle('📊 حالة البوت')
+              .setDescription(`**الاسم:** ${targetInstance.name}\n**الحالة:** ${isRunning ? '🟢 متصل' : '🔴 متوقف'}\n**المالك:** <@${targetInstance.ownerId}>`)
+              .setColor(isRunning ? '#10B981' : '#EF4444');
+            return interaction.reply({ embeds: [embed], ephemeral: true }).catch(() => null);
+          }
+        }
+      }
+
+      if (interaction.type === InteractionType.ModalSubmit) {
+        if (interaction.customId.startsWith('ctrl_change_token_modal:')) {
+          const targetUserId = interaction.customId.split(':')[1];
+          if (interaction.user.id !== targetUserId) return;
+
+          const newToken = interaction.fields.getTextInputValue('new_token');
+          const targetInstance = botConfig.instances.find((i: any) => i.ownerId === targetUserId);
+          if (!targetInstance) return;
+
+          targetInstance.token = newToken;
+          saveConfig();
+
+          if (botClients.has(targetInstance.id)) {
+            await botClients.get(targetInstance.id)?.destroy().catch(() => null);
+            botClients.delete(targetInstance.id);
+          }
+
+          await startBotInstance(targetInstance.id);
+
+          const embed = new EmbedBuilder()
+            .setTitle('🔑 تم تغيير التوكن وإعادة التشغيل')
+            .setDescription(`تم تحديث توكن **${targetInstance.name}** وإعادة تشغيله بنجاح!`)
+            .setColor('#10B981');
+          const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`ctrl_stop:${targetUserId}`).setLabel('إيقاف البوت').setEmoji('⏹️').setStyle(ButtonStyle.Danger)
+          );
+          return interaction.reply({ embeds: [embed], components: [row as any] }).catch(() => null);
         }
       }
     } catch (err) {
