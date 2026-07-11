@@ -619,6 +619,18 @@ async function startServer() {
         }
 
         else if (customId === 'start_bot_btn') {
+          const existingUserInstance = botConfig.instances.find((i: any) => i.ownerId === interaction.user.id);
+          if (existingUserInstance && botClients.has(existingUserInstance.id)) {
+            return interaction.reply({
+              embeds: [new EmbedBuilder()
+                .setTitle('⚠️ لديك بوت شغال بالفعل')
+                .setDescription('لا يمكنك تشغيل بوت آخر. لديك بوت يعمل حالياً.\nأوقف بوتك الحالي أولاً من لوحة التحكم.')
+                .setColor('#F59E0B')
+              ],
+              ephemeral: true
+            }).catch(() => null);
+          }
+
           const modal = new ModalBuilder()
             .setCustomId('start_bot_modal')
             .setTitle('تشغيل البوت');
