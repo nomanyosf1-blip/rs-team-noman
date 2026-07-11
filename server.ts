@@ -21,7 +21,10 @@ import {
   StringSelectMenuBuilder,
   TextChannel,
   GuildMember,
-  ColorResolvable
+  ColorResolvable,
+  REST,
+  Routes,
+  SlashCommandBuilder
 } from 'discord.js';
 
 async function startServer() {
@@ -153,7 +156,7 @@ async function startServer() {
         intents: intents
       });
 
-      client.on('ready', () => {
+      client.on('ready', async () => {
         console.log(`[BOT_${instance.id}] Logged in as ${client.user?.tag}!`);
         instance.status = "متصل";
         
@@ -165,6 +168,37 @@ async function startServer() {
         
         if (botConfig.botSettings?.defaultActivity) {
           client.user?.setActivity(botConfig.botSettings.defaultActivity);
+        }
+
+        const commands = [
+          new SlashCommandBuilder()
+            .setName('dashboard')
+            .setDescription('رابط لوحة التحكم')
+            .setDMPermission(true),
+          new SlashCommandBuilder()
+            .setName('change-token')
+            .setDescription('تغيير توكن البوت')
+            .setDMPermission(true),
+          new SlashCommandBuilder()
+            .setName('bot-status')
+            .setDescription('حالة البوت')
+            .setDMPermission(true),
+          new SlashCommandBuilder()
+            .setName('stop')
+            .setDescription('إيقاف البوت')
+            .setDMPermission(true),
+          new SlashCommandBuilder()
+            .setName('help')
+            .setDescription('قائمة الأوامر')
+            .setDMPermission(true)
+        ];
+
+        try {
+          const rest = new REST({ version: '10' }).setToken(tokenToUse);
+          await rest.put(Routes.applicationCommands(client.user!.id), { body: commands });
+          console.log(`[BOT_${instance.id}] Slash commands registered.`);
+        } catch (err) {
+          console.error(`[BOT_${instance.id}] Failed to register commands:`, err);
         }
         
         saveConfig();
@@ -350,10 +384,76 @@ async function startServer() {
 
   // --- Interaction Logic ---
   async function handleInteraction(interaction: any, instanceId: string) {
-    if (!interaction.guild) return;
-
     const instance = botConfig.instances.find((i: any) => i.id === instanceId);
     if (!instance) return;
+
+    const dashboardUrl = process.env.APP_URL || `http://localhost:${botConfig.server?.port || 3000}`;
+
+    if (interaction.isChatInputCommand()) {
+      if (!interaction.guild) {
+        const cmdName = interaction.commandName;
+
+        if (cmdName === 'dashboard') {
+          const embed = new EmbedBuilder()
+            .setTitle('🔗 لوحة التحكم')
+            .setDescription(`[افتح لوحة التحكم](${dashboardUrl}/dashboard)\n\nاستخدم هذا الرابط للدخول إلى لوحة التحكم الخاصة بك.`)
+            .setColor((botConfig.app?.branding?.primaryColor || '#c5a059') as ColorResolvable)
+            .setFooter({ text: botConfig.app?.branding?.footer || 'RS TEAM System' });
+          return interaction.reply({ embeds: [embed] }).catch(() => null);
+        }
+
+        if (cmdName === 'change-token') {
+          const modal = new ModalBuilder()
+            .setCustomId('change_token_modal')
+            .setTitle('تغيير التوكن');
+          const input = new TextInputBuilder()
+            .setCustomId('new_token')
+            .setLabel('التوكن الجديد')
+            .setPlaceholder('الصق توكن البوت الجديد هنا...')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+          const row = new ActionRowBuilder<TextInputBuilder>().addComponents(input);
+          modal.addComponents(row);
+          return interaction.showModal(modal).catch(() => null);
+        }
+
+        if (cmdName === 'bot-status') {
+          const isRunning = botClients.has(instanceId) && botClients.get(instanceId)?.isReady();
+          const embed = new EmbedBuilder()
+            .setTitle('📊 حالة البوت')
+            .setDescription(`**الاسم:** ${instance.name}\n**الحالة:** ${isRunning ? '🟢 متصل' : '🔴 متوقف'}\n**المالك:** <@${instance.ownerId || 'غير معروف'}>`)
+            .setColor(isRunning ? '#10B981' : '#EF4444')
+            .setFooter({ text: botConfig.app?.branding?.footer || 'RS TEAM System' });
+          return interaction.reply({ embeds: [embed] }).catch(() => null);
+        }
+
+        if (cmdName === 'stop') {
+          if (interaction.user.id !== instance.ownerId) {
+            return interaction.reply({ content: '❌ أنت لست مالك البوت.', ephemeral: true }).catch(() => null);
+          }
+          const client = botClients.get(instanceId);
+          if (client) {
+            await client.destroy().catch(() => null);
+            botClients.delete(instanceId);
+            instance.status = "متوقف";
+            saveConfig();
+          }
+          return interaction.reply({ embeds: [new EmbedBuilder().setTitle('⏹️ تم إيقاف البوت').setDescription('تم إيقاف بوتك بنجاح.').setColor('#EF4444')] }).catch(() => null);
+        }
+
+        if (cmdName === 'help') {
+          const embed = new EmbedBuilder()
+            .setTitle('📖 قائمة الأوامر')
+            .setDescription('**/dashboard** - رابط لوحة التحكم\n**/change-token** - تغيير توكن البوت\n**/bot-status** - حالة البوت\n**/stop** - إيقاف البوت\n**/help** - هذه القائمة')
+            .setColor((botConfig.app?.branding?.primaryColor || '#c5a059') as ColorResolvable)
+            .setFooter({ text: botConfig.app?.branding?.footer || 'RS TEAM System' });
+          return interaction.reply({ embeds: [embed] }).catch(() => null);
+        }
+
+        return;
+      }
+      return;
+    }
 
     try {
       // Check for allowed role restriction if opening a ticket
@@ -384,6 +484,25 @@ async function startServer() {
       }
 
       if (interaction.type === InteractionType.ModalSubmit) {
+        if (interaction.customId === 'change_token_modal') {
+          const newToken = interaction.fields.getTextInputValue('new_token');
+          instance.token = newToken;
+          saveConfig();
+
+          if (botClients.has(instanceId)) {
+            await botClients.get(instanceId)?.destroy().catch(() => null);
+            botClients.delete(instanceId);
+          }
+
+          await startBotInstance(instanceId);
+
+          const embed = new EmbedBuilder()
+            .setTitle('✅ تم تغيير التوكن')
+            .setDescription('تم تحديث توكن البوت وإعادة تشغيله بنجاح!')
+            .setColor('#10B981');
+          return interaction.reply({ embeds: [embed] }).catch(() => null);
+        }
+
         if (interaction.customId.startsWith('ticket_modal:')) {
           const sectorId = interaction.customId.split(':')[1];
           let sector: any = null;
