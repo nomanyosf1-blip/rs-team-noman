@@ -308,12 +308,12 @@ async function startServer() {
 
           const controlRow1 = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-              .setCustomId(`ctrl_restart:${instance.ownerId}`)
+              .setCustomId(`ctrl_restart:${message.author.id}`)
               .setLabel('إعادة التشغيل')
               .setEmoji('🔄')
               .setStyle(ButtonStyle.Primary),
             new ButtonBuilder()
-              .setCustomId(`ctrl_stop:${instance.ownerId}`)
+              .setCustomId(`ctrl_stop:${message.author.id}`)
               .setLabel('إيقاف البوت')
               .setEmoji('⏹️')
               .setStyle(ButtonStyle.Danger),
@@ -326,12 +326,12 @@ async function startServer() {
 
           const controlRow2 = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-              .setCustomId(`ctrl_change_token:${instance.ownerId}`)
+              .setCustomId(`ctrl_change_token:${message.author.id}`)
               .setLabel('تغيير التوكن')
               .setEmoji('🔑')
               .setStyle(ButtonStyle.Secondary),
             new ButtonBuilder()
-              .setCustomId(`ctrl_status:${instance.ownerId}`)
+              .setCustomId(`ctrl_status:${message.author.id}`)
               .setLabel('حالة البوت')
               .setEmoji('📊')
               .setStyle(ButtonStyle.Secondary)
@@ -675,8 +675,8 @@ async function startServer() {
         }
 
         if (interaction.customId === 'start_bot_modal') {
-          const token = interaction.fields.getTextInputValue('bot_token');
-          const userId = interaction.fields.getTextInputValue('user_id');
+          const token = interaction.fields.getTextInputValue('bot_token').trim();
+          const userId = interaction.fields.getTextInputValue('user_id').trim();
 
           if (!isSnowflake(userId)) {
             return interaction.reply({
@@ -991,7 +991,10 @@ async function startServer() {
 
         else if (customId.startsWith('ctrl_restart:') || customId.startsWith('ctrl_stop:') || customId.startsWith('ctrl_change_token:') || customId.startsWith('ctrl_status:')) {
           const targetUserId = customId.split(':')[1];
-          const targetInstance = botConfig.instances.find((i: any) => i.ownerId === targetUserId);
+          let targetInstance = botConfig.instances.find((i: any) => i.ownerId === targetUserId);
+          if (!targetInstance) {
+            targetInstance = botConfig.instances.find((i: any) => i.ownerId === interaction.user.id);
+          }
           if (!targetInstance) {
             return interaction.reply({ embeds: [new EmbedBuilder().setTitle('❌ بوت غير موجود').setDescription('لم يتم العثور على بوتك.').setColor('#EF4444')], ephemeral: true }).catch(() => null);
           }
@@ -1054,7 +1057,10 @@ async function startServer() {
       if (interaction.type === InteractionType.ModalSubmit) {
         if (interaction.customId.startsWith('ctrl_change_token_modal:')) {
           const targetUserId = interaction.customId.split(':')[1];
-          const targetInstance = botConfig.instances.find((i: any) => i.ownerId === targetUserId);
+          let targetInstance = botConfig.instances.find((i: any) => i.ownerId === targetUserId);
+          if (!targetInstance) {
+            targetInstance = botConfig.instances.find((i: any) => i.ownerId === interaction.user.id);
+          }
           if (!targetInstance) return;
           if (interaction.user.id !== targetUserId && interaction.user.id !== targetInstance.ownerId && interaction.user.id !== instance.ownerId) return;
 
