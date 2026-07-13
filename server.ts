@@ -709,11 +709,42 @@ async function startServer() {
 
               const dmEmbed = new EmbedBuilder()
                 .setTitle('✅ تم تحديث وتشغيل البوت بنجاح!')
-                .setDescription(`تم تحديث توكن بوتك وتشغيله بنجاح!\n\n🔗 رابط لوحة التحكم: [اضغط هنا](${dashboardUrl}/dashboard)\n\nاستخدم هذا الرابط للدخول إلى لوحة التحكم الخاصة بك.`)
+                .setDescription(`تم تحديث توكن بوتك وتشغيله بنجاح!\n\n🔗 رابط لوحة التحكم: [اضغط هنا](${dashboardUrl}/dashboard)`)
                 .setColor('#10B981')
                 .setTimestamp();
 
-              await dmUser.send({ embeds: [dmEmbed] });
+              const controlRow1 = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                  .setCustomId(`ctrl_restart:${userId}`)
+                  .setLabel('إعادة التشغيل')
+                  .setEmoji('🔄')
+                  .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                  .setCustomId(`ctrl_stop:${userId}`)
+                  .setLabel('إيقاف البوت')
+                  .setEmoji('⏹️')
+                  .setStyle(ButtonStyle.Danger),
+                new ButtonBuilder()
+                  .setLabel('لوحة التحكم')
+                  .setEmoji('🌐')
+                  .setStyle(ButtonStyle.Link)
+                  .setURL(`${dashboardUrl}/dashboard`)
+              );
+
+              const controlRow2 = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                  .setCustomId(`ctrl_change_token:${userId}`)
+                  .setLabel('تغيير التوكن')
+                  .setEmoji('🔑')
+                  .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                  .setCustomId(`ctrl_status:${userId}`)
+                  .setLabel('حالة البوت')
+                  .setEmoji('📊')
+                  .setStyle(ButtonStyle.Secondary)
+              );
+
+              await dmUser.send({ embeds: [dmEmbed], components: [controlRow1 as any, controlRow2 as any] });
             } catch (err) {
               console.error('Failed to DM user:', err);
             }
@@ -764,11 +795,42 @@ async function startServer() {
 
             const dmEmbed = new EmbedBuilder()
               .setTitle('✅ تم تشغيل البوت بنجاح!')
-              .setDescription(`تم تشغيل بوتك بنجاح!\n\n🔗 رابط لوحة التحكم: [اضغط هنا](${dashboardUrl}/dashboard)\n\nاستخدم هذا الرابط للدخول إلى لوحة التحكم الخاصة بك.`)
+              .setDescription(`تم تشغيل بوتك بنجاح!\n\n🔗 رابط لوحة التحكم: [اضغط هنا](${dashboardUrl}/dashboard)`)
               .setColor('#10B981')
               .setTimestamp();
 
-            await dmUser.send({ embeds: [dmEmbed] });
+            const controlRow1 = new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`ctrl_restart:${userId}`)
+                .setLabel('إعادة التشغيل')
+                .setEmoji('🔄')
+                .setStyle(ButtonStyle.Primary),
+              new ButtonBuilder()
+                .setCustomId(`ctrl_stop:${userId}`)
+                .setLabel('إيقاف البوت')
+                .setEmoji('⏹️')
+                .setStyle(ButtonStyle.Danger),
+              new ButtonBuilder()
+                .setLabel('لوحة التحكم')
+                .setEmoji('🌐')
+                .setStyle(ButtonStyle.Link)
+                .setURL(`${dashboardUrl}/dashboard`)
+            );
+
+            const controlRow2 = new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`ctrl_change_token:${userId}`)
+                .setLabel('تغيير التوكن')
+                .setEmoji('🔑')
+                .setStyle(ButtonStyle.Secondary),
+              new ButtonBuilder()
+                .setCustomId(`ctrl_status:${userId}`)
+                .setLabel('حالة البوت')
+                .setEmoji('📊')
+                .setStyle(ButtonStyle.Secondary)
+            );
+
+            await dmUser.send({ embeds: [dmEmbed], components: [controlRow1 as any, controlRow2 as any] });
           } catch (err) {
             console.error('Failed to DM user:', err);
           }
