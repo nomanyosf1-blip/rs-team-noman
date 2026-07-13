@@ -991,16 +991,17 @@ async function startServer() {
 
         else if (customId.startsWith('ctrl_restart:') || customId.startsWith('ctrl_stop:') || customId.startsWith('ctrl_change_token:') || customId.startsWith('ctrl_status:')) {
           const targetUserId = customId.split(':')[1];
-          if (interaction.user.id !== targetUserId) {
+          const targetInstance = botConfig.instances.find((i: any) => i.ownerId === targetUserId);
+          if (!targetInstance) {
+            return interaction.reply({ embeds: [new EmbedBuilder().setTitle('❌ بوت غير موجود').setDescription('لم يتم العثور على بوتك.').setColor('#EF4444')], ephemeral: true }).catch(() => null);
+          }
+
+          const clickingUserId = interaction.user.id;
+          if (clickingUserId !== targetUserId && clickingUserId !== targetInstance.ownerId && clickingUserId !== instance.ownerId) {
             return interaction.reply({
               embeds: [new EmbedBuilder().setTitle('🔒 لوحة تحكم خاصة').setDescription('هذه الأزرار مخصصة لمالك البوت فقط.').setColor('#EF4444')],
               ephemeral: true
             }).catch(() => null);
-          }
-
-          const targetInstance = botConfig.instances.find((i: any) => i.ownerId === targetUserId);
-          if (!targetInstance) {
-            return interaction.reply({ embeds: [new EmbedBuilder().setTitle('❌ بوت غير موجود').setDescription('لم يتم العثور على بوتك.').setColor('#EF4444')], ephemeral: true }).catch(() => null);
           }
 
           if (customId.startsWith('ctrl_stop:')) {
@@ -1053,12 +1054,11 @@ async function startServer() {
       if (interaction.type === InteractionType.ModalSubmit) {
         if (interaction.customId.startsWith('ctrl_change_token_modal:')) {
           const targetUserId = interaction.customId.split(':')[1];
-          if (interaction.user.id !== targetUserId) return;
-
-          const newToken = interaction.fields.getTextInputValue('new_token');
           const targetInstance = botConfig.instances.find((i: any) => i.ownerId === targetUserId);
           if (!targetInstance) return;
+          if (interaction.user.id !== targetUserId && interaction.user.id !== targetInstance.ownerId && interaction.user.id !== instance.ownerId) return;
 
+          const newToken = interaction.fields.getTextInputValue('new_token');
           targetInstance.token = newToken;
           saveConfig();
 
